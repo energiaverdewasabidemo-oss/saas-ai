@@ -11,9 +11,11 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchMetrics = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const { data, error } = await supabase
         .from('dashboard_metrics')
@@ -24,6 +26,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
       setMetrics(data);
     } catch (error) {
       console.error('Error fetching metrics:', error);
+      setError(error instanceof Error ? error.message : 'Error al cargar las métricas');
     } finally {
       setIsLoading(false);
     }
@@ -89,6 +92,14 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
             Salir
           </button>
         </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
+            <p className="font-semibold">Error:</p>
+            <p className="text-sm">{error}</p>
+            <p className="text-xs mt-2">Verifica que las variables de entorno estén configuradas correctamente en Netlify.</p>
+          </div>
+        )}
 
         <div className="space-y-4">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">

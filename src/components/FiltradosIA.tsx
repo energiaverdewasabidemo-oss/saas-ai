@@ -12,9 +12,11 @@ export default function FiltradosIA({ onNavigateToLlamadas }: FiltradosIAProps) 
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [totalLlamadas, setTotalLlamadas] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const { data: callsData, error: callsError } = await supabase
         .from('calls')
@@ -35,6 +37,7 @@ export default function FiltradosIA({ onNavigateToLlamadas }: FiltradosIAProps) 
       setTotalLlamadas(metricsData?.total_calls || 0);
     } catch (error) {
       console.error('Error fetching data:', error);
+      setError(error instanceof Error ? error.message : 'Error al cargar los datos');
     } finally {
       setIsLoading(false);
     }
@@ -98,6 +101,14 @@ export default function FiltradosIA({ onNavigateToLlamadas }: FiltradosIAProps) 
         </div>
 
         <p className="text-gray-500 mb-6">Datos en tiempo real</p>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
+            <p className="font-semibold">Error:</p>
+            <p className="text-sm">{error}</p>
+            <p className="text-xs mt-2">Verifica que las variables de entorno estén configuradas correctamente en Netlify.</p>
+          </div>
+        )}
 
         <div className="relative mb-4">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
