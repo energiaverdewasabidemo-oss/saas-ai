@@ -1,13 +1,29 @@
 import { useState, useEffect } from 'react';
 import { LogOut, Phone, Clock, BarChart3, Search, RotateCcw } from 'lucide-react';
-import { supabase, DashboardMetrics } from '../lib/supabase';
+import { fetchDashboardFromN8N } from '../lib/supabase';
 
 interface LlamadasIAProps {
   onExit: () => void;
 }
 
+interface DashboardData {
+  total_llamadas: number;
+  llamadas_contestadas: number;
+  duracion_total: string;
+  duracion_total_segundos: number;
+  agentes: number;
+  ultima_actualizacion: string;
+  tasa_respuesta: string;
+  clasificaciones: {
+    positivos: number;
+    negativos: number;
+    neutros: number;
+    no_contestados: number;
+  };
+}
+
 export default function LlamadasIA({ onExit }: LlamadasIAProps) {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [metrics, setMetrics] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -17,13 +33,8 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from('dashboard_metrics')
-        .select('*')
-        .maybeSingle();
-
-      if (error) throw error;
-      setMetrics(data);
+      const response = await fetchDashboardFromN8N();
+      setMetrics(response);
     } catch (error) {
       console.error('Error fetching metrics:', error);
       setError(error instanceof Error ? error.message : 'Error al cargar las métricas');
@@ -35,34 +46,29 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
   useEffect(() => {
     fetchMetrics();
 
-    const metricsSubscription = supabase
-      .channel('metrics_realtime')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'dashboard_metrics' },
-        () => {
-          fetchMetrics();
-        }
-      )
-      .subscribe();
+    // Actualizar cada 10 segundos
+    const interval = setInterval(() => {
+      fetchMetrics();
+    }, 10000);
 
     return () => {
-      supabase.removeChannel(metricsSubscription);
+      clearInterval(interval);
     };
   }, []);
-
-  const formatDuration = (seconds: number) => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours}h ${minutes}m ${secs}s`;
-  };
 
   const handleResetData = async () => {
     setIsResetting(true);
     try {
-      const { error } = await supabase.rpc('reset_daily_data');
+      const response = await fetch('https://api.energiaverdewasabi.es/webhook/dashboard/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error('Error al reiniciar datos');
+      }
 
       await fetchMetrics();
       setShowConfirm(false);
@@ -107,7 +113,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Total de Llamadas</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics?.total_calls || 0}
+                  {metrics?.total_llamadas || 0}
                 </p>
               </div>
               <div className="bg-blue-50 p-4 rounded-xl">
@@ -121,7 +127,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Llamadas Contestadas</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics?.answered_calls || 0}
+                  {metrics?.llamadas_contestadas || 0}
                 </p>
               </div>
               <div className="bg-green-50 p-4 rounded-xl">
@@ -135,11 +141,11 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Duración Total</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics ? formatDuration(metrics.total_duration_seconds) : '0h 0m 0s'}
+                  {metrics?.duracion_total || '0h 0m 0s'}
                 </p>
               </div>
-              <div className="bg-purple-50 p-4 rounded-xl">
-                <Clock className="w-8 h-8 text-purple-500" />
+              <div className="bg-orange-50 p-4 rounded-xl">
+                <Clock className="w-8 h-8 text-orange-500" />
               </div>
             </div>
           </div>
@@ -149,7 +155,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Agentes</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics?.agents_count || 0}
+                  {metrics?.agentes || 0}
                 </p>
               </div>
               <div className="bg-blue-50 p-4 rounded-xl">
