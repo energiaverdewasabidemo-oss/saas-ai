@@ -60,9 +60,13 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
   const handleResetData = async () => {
     setIsResetting(true);
     try {
-      const { error } = await supabase.rpc('reset_daily_data');
+      const response = await fetch('https://api.energiaverdewasabi.es/webhook/dashboard/reset', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ action: 'reset_daily', timestamp: new Date().toISOString() }),
+});
 
-      if (error) throw error;
+if (!response.ok) throw new Error('Error al reiniciar datos');
 
       await fetchMetrics();
       setShowConfirm(false);
