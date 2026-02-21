@@ -35,3 +35,29 @@ export interface DashboardMetrics {
   agents_count: number;
   updated_at: string;
 }
+
+export interface WebhookStats {
+  total_llamadas: number;
+  llamadas_contestadas: number;
+  duracion_total: string;
+  duracion_total_segundos: number;
+  agentes: number;
+  ultima_actualizacion: string;
+  tasa_respuesta: number;
+  clasificaciones: {
+    positivos: number;
+    negativos: number;
+    neutros: number;
+    no_contestados: number;
+  };
+}
+
+export async function fetchWebhookStats(): Promise<WebhookStats> {
+  const response = await fetch('/.netlify/functions/webhook-stats');
+  if (!response.ok) {
+    throw new Error('Error al obtener datos del webhook');
+  }
+  const data = await response.json();
+  // The API returns an array with one object
+  return Array.isArray(data) ? data[0] : data;
+}

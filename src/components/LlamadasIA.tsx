@@ -1,29 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LogOut, Phone, Clock, BarChart3, Search, RotateCcw } from 'lucide-react';
-import { supabase, DashboardMetrics } from '../lib/supabase';
+import { supabase, WebhookStats, fetchWebhookStats } from '../lib/supabase';
+
+const POLL_INTERVAL_MS = 30_000; // Actualizar cada 30 segundos
 
 interface LlamadasIAProps {
   onExit: () => void;
 }
 
 export default function LlamadasIA({ onExit }: LlamadasIAProps) {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
+  const [stats, setStats] = useState<WebhookStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchMetrics = async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const { data, error } = await supabase
-        .from('dashboard_metrics')
-        .select('*')
-        .maybeSingle();
-
-      if (error) throw error;
-      setMetrics(data);
+      const data = await fetchWebhookStats();
+      setStats(data);
     } catch (error) {
       console.error('Error fetching metrics:', error);
       setError(error instanceof Error ? error.message : 'Error al cargar las métricas');
@@ -35,18 +33,10 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
   useEffect(() => {
     fetchMetrics();
 
-    const metricsSubscription = supabase
-      .channel('metrics_realtime')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'dashboard_metrics' },
-        () => {
-          fetchMetrics();
-        }
-      )
-      .subscribe();
+    intervalRef.current = setInterval(fetchMetrics, POLL_INTERVAL_MS);
 
     return () => {
-      supabase.removeChannel(metricsSubscription);
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
 
@@ -107,7 +97,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Total de Llamadas</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics?.total_calls || 0}
+                  {stats?.total_llamadas || 0}
                 </p>
               </div>
               <div className="bg-blue-50 p-4 rounded-xl">
@@ -121,7 +111,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Llamadas Contestadas</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics?.answered_calls || 0}
+                  {stats?.llamadas_contestadas || 0}
                 </p>
               </div>
               <div className="bg-green-50 p-4 rounded-xl">
@@ -135,7 +125,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Duración Total</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics ? formatDuration(metrics.total_duration_seconds) : '0h 0m 0s'}
+                  {stats ? formatDuration(stats.duracion_total_segundos) : '0h 0m 0s'}
                 </p>
               </div>
               <div className="bg-purple-50 p-4 rounded-xl">
@@ -149,7 +139,7 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
               <div>
                 <p className="text-gray-500 mb-2">Agentes</p>
                 <p className="text-5xl font-bold text-gray-900">
-                  {metrics?.agents_count || 0}
+                  {stats?.agentes || 0}
                 </p>
               </div>
               <div className="bg-blue-50 p-4 rounded-xl">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Search, RefreshCw, Database, Phone, Zap } from 'lucide-react';
-import { supabase, Call } from '../lib/supabase';
+import { supabase, Call, fetchWebhookStats } from '../lib/supabase';
 
 interface FiltradosIAProps {
   onNavigateToLlamadas: () => void;
@@ -18,23 +18,19 @@ export default function FiltradosIA({ onNavigateToLlamadas }: FiltradosIAProps) 
     setIsLoading(true);
     setError(null);
     try {
-      const { data: callsData, error: callsError } = await supabase
-        .from('calls')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [callsResult, webhookStats] = await Promise.all([
+        supabase
+          .from('calls')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        fetchWebhookStats(),
+      ]);
 
-      if (callsError) throw callsError;
+      if (callsResult.error) throw callsResult.error;
 
-      const { data: metricsData, error: metricsError } = await supabase
-        .from('dashboard_metrics')
-        .select('*')
-        .maybeSingle();
-
-      if (metricsError) throw metricsError;
-
-      setCalls(callsData || []);
-      setFilteredCalls(callsData || []);
-      setTotalLlamadas(metricsData?.total_calls || 0);
+      setCalls(callsResult.data || []);
+      setFilteredCalls(callsResult.data || []);
+      setTotalLlamadas(webhookStats?.total_llamadas || 0);
     } catch (error) {
       console.error('Error fetching data:', error);
       setError(error instanceof Error ? error.message : 'Error al cargar los datos');
@@ -56,19 +52,8 @@ export default function FiltradosIA({ onNavigateToLlamadas }: FiltradosIAProps) 
       )
       .subscribe();
 
-    const metricsSubscription = supabase
-      .channel('metrics_changes')
-      .on('postgres_changes',
-        { event: '*', schema: 'public', table: 'dashboard_metrics' },
-        () => {
-          fetchData();
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(callsSubscription);
-      supabase.removeChannel(metricsSubscription);
     };
   }, []);
 
