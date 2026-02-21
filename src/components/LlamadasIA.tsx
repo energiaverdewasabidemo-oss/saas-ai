@@ -9,7 +9,6 @@ interface LlamadasIAProps {
 export default function LlamadasIA({ onExit }: LlamadasIAProps) {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,25 +56,17 @@ export default function LlamadasIA({ onExit }: LlamadasIAProps) {
     return `${hours}h ${minutes}m ${secs}s`;
   };
 
-  const handleResetData = async () => {
-    setIsResetting(true);
-    try {
-      const response = await fetch('https://api.energiaverdewasabi.es/webhook/dashboard/reset', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ action: 'reset_daily', timestamp: new Date().toISOString() }),
-});
-
-if (!response.ok) throw new Error('Error al reiniciar datos');
-
-      await fetchMetrics();
-      setShowConfirm(false);
-    } catch (error) {
-      console.error('Error resetting data:', error);
-      alert('Error al reiniciar datos. Por favor intenta de nuevo.');
-    } finally {
-      setIsResetting(false);
-    }
+  const handleResetData = () => {
+    setMetrics({
+      id: metrics?.id || '',
+      total_calls: 0,
+      answered_calls: 0,
+      total_duration_seconds: 0,
+      total_filtered: 0,
+      agents_count: 0,
+      updated_at: new Date().toISOString(),
+    });
+    setShowConfirm(false);
   };
 
   return (
@@ -165,10 +156,9 @@ if (!response.ok) throw new Error('Error al reiniciar datos');
 
         <button
           onClick={() => setShowConfirm(true)}
-          disabled={isResetting}
-          className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-xl flex items-center justify-center gap-2 transition-colors font-medium disabled:opacity-50"
+          className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white py-4 rounded-xl flex items-center justify-center gap-2 transition-colors font-medium"
         >
-          <RotateCcw className={`w-5 h-5 ${isResetting ? 'animate-spin' : ''}`} />
+          <RotateCcw className="w-5 h-5" />
           Reiniciar Datos del Día
         </button>
 
@@ -192,30 +182,21 @@ if (!response.ok) throw new Error('Error al reiniciar datos');
             <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Confirmar Reinicio</h2>
               <p className="text-gray-600 mb-6">
-                ¿Estás seguro de que deseas reiniciar todos los datos del día? Esta acción eliminará todas las llamadas y reseteará las métricas a 0.
+                ¿Estás seguro de que deseas reiniciar la vista del panel? Las métricas se mostrarán en 0 hasta que lleguen nuevos datos en tiempo real.
               </p>
-              <p className="text-red-600 font-semibold mb-6">Esta acción no se puede deshacer.</p>
+              <p className="text-orange-600 font-semibold mb-6">Los datos del servidor no se verán afectados.</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowConfirm(false)}
-                  disabled={isResetting}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-xl font-medium transition-colors disabled:opacity-50"
+                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 rounded-xl font-medium transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleResetData}
-                  disabled={isResetting}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-medium transition-colors"
                 >
-                  {isResetting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Reiniciando...
-                    </>
-                  ) : (
-                    'Sí, Reiniciar'
-                  )}
+                  Sí, Reiniciar Vista
                 </button>
               </div>
             </div>
